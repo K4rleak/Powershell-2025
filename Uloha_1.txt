@@ -1,0 +1,17 @@
+1)
+Get-WinEvent -FilterHashtable @{
+    LogName = 'System'
+    Level = 2 # 2 = Chyba (Error)
+    StartTime = (Get-Date).AddDays(-10)
+} | Format-Table TimeCreated, Id, LevelDisplayName, Message -AutoSize
+
+
+2)
+$s = "506f7765727368656c6c20697320617765736f6d6521"
+$ascii = -join ($s -split '([0-9A-Fa-f]{2})' | Where-Object {$_} | ForEach-Object {[char]([Convert]::ToByte($_,16))})
+
+$ascii
+
+
+
+
