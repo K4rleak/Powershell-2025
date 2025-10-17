@@ -1,0 +1,29 @@
+1) 
+Prikaz New-Item -Path $PROFILE -ItemType File -Force vytvori soubor profile v dokumentech. Ten se bude spoustet pokazde kdyz zapnu powershell.
+Do tohoto file ulozime:
+#vypis Execution Policy
+Write-Host "Execution Policy: $(Get-ExecutionPolicy)" -ForegroundColor Yellow 
+
+# Zobrazení cesty k profilu (zeleně)
+Write-Host "Profil je uložen v: $PROFILE" -ForegroundColor Green
+
+# Definice aliasů
+Set-Alias np notepad.exe
+Set-Alias ct control.exe
+
+# Export aliasů do JSON
+$aliases = @(
+    @{ Name = "np"; Definition = (Get-Command notepad.exe).Source },
+    @{ Name = "ct"; Definition = (Get-Command control.exe).Source }
+)
+$aliases | ConvertTo-Json | Out-File "$HOME\Desktop\aliases.json" -Encoding UTF8
+
+# Smazání aliasů
+Remove-Item Alias:np -ErrorAction SilentlyContinue
+Remove-Item Alias:ct -ErrorAction SilentlyContinue
+
+# Obnovení aliasů z JSON
+$imported = Get-Content "$HOME\Desktop\aliases.json" | ConvertFrom-Json
+foreach ($a in $imported) {
+    Set-Alias $a.Name $a.Definition
+}
