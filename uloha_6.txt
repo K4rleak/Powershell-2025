@@ -1,0 +1,37 @@
+# brno_teplota.ps1
+# Získání aktuální teploty v Brně a zápis do teploty.txt
+
+# URL API pro počasí (bez nutnosti klíče)
+$city = "Brno"
+$url = "https://wttr.in/$city?format=%t"
+
+try {
+    # Načtení aktuální teploty z wttr.in
+    $temperature = curl https://wttr.in/Brno?format=%t
+
+    # Odebrání případného plusového znaménka a přidání jednotky
+    $temperatureClean = $temperature -replace "┬░C", ""
+
+    write-Host $temperatureClean
+
+    # Cesta k souboru na ploše
+    $desktopPath = [Environment]::GetFolderPath("Desktop")
+    $filePath = Join-Path $desktopPath "teploty.txt"
+
+    Add-Content -Path $filePath -Value $temperatureClean
+
+} catch {
+    Write-Error "Nepodařilo se načíst teplotu: $_"
+}
+
+
+2)
+
+$desktop = [Environment]::GetFolderPath("Desktop")
+$scriptPath = Join-Path $desktop "brno_teplota.ps1"
+
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration ([TimeSpan]::MaxValue)
+$action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -File `"$scriptPath`""
+
+Register-ScheduledTask -TaskName "BrnoTeplotaLog" -Trigger $trigger -Action $action -Description "Loguje teplotu v Brně každou hodinu" -User $env:USERNAME
+
