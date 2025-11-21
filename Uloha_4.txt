@@ -1,5 +1,5 @@
 # Získání aktuální hodnoty
-$keyPath = "HKCU\Control Panel\Keyboard"
+$keyPath = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Keyboard"
 $valueName = "InitialKeyboardIndicators"
 
 
@@ -38,4 +38,5 @@ Set-ItemProperty -Path $newKeyPath -Name "PowerShellVerze" -Value $psverze
 # Výpis potvrzení
 Write-Host "`nInformace zapsány do registru:"
 Get-ItemProperty -Path $newKeyPath | Select-Object Uzivatel, Pocitac, Datum, PowerShellVerze
+
 
