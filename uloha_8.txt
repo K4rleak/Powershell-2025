@@ -1,0 +1,107 @@
+# --- Získání instalací z registru ---
+function Get-InstalledFromRegistry {
+    [CmdletBinding()]
+    param(
+        [switch]$IncludeUser = $true
+    )
+
+    $base = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    if ($IncludeUser) {
+        $base += @(
+            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKCU:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        )
+    }
+
+    foreach ($path in $base) {
+        try {
+            Get-ItemProperty -Path $path -ErrorAction SilentlyContinue |
+                Where-Object { $_.DisplayName } |
+                Select-Object @{
+                        Name='Source';Expression={'Registry'}
+                    },
+                    DisplayName,
+                    DisplayVersion,
+                    Publisher,
+                    InstallDate,
+                    UninstallString,
+                    PSPath
+        } catch {
+            # tiché ignorování chyb
+        }
+    }
+}
+
+# --- Získání instalací z MSI událostí ---
+function Get-InstalledFromEventLog {
+    [CmdletBinding()]
+    param(
+        [int]$DaysBack = 30
+    )
+
+    $start = (Get-Date).AddDays(-$DaysBack)
+
+    Get-WinEvent -FilterHashtable @{
+        LogName   = 'Application'
+        ProviderName = 'MsiInstaller'
+        Id        = 1033
+        StartTime = $start
+    } -ErrorAction SilentlyContinue |
+    ForEach-Object {
+        $raw = $_.Message
+        if ($raw -match "Product:\s*(.+?)\s*--\s*Installed") {
+            $name = $matches[1].Trim()
+        } else {
+            $name = $raw
+        }
+
+        [PSCustomObject]@{
+            Source          = 'EventLog'
+            DisplayName     = $name
+            DisplayVersion  = $null
+            Publisher       = $null
+            InstallDate     = $_.TimeCreated.ToString("yyyyMMdd")
+            UninstallString = $null
+            PSPath          = "EventLog:$($_.Id)"
+        }
+    }
+}
+
+# --- Instalace přes poskytovatele balíčků ---
+function Get-InstalledFromPackage {
+    [CmdletBinding()]
+    param()
+
+    Get-Package -ErrorAction SilentlyContinue |
+        Select-Object @{
+                Name='Source';Expression={'Get-Package'}
+            },
+            Name,
+            Version,
+            ProviderName,
+            @{Name='DisplayName';Expression={$_.Name}},
+            @{Name='DisplayVersion';Expression={$_.Version}},
+            @{Name='Publisher';Expression={$_.ProviderName}},
+            @{Name='InstallDate';Expression={$null}},
+            @{Name='UninstallString';Expression={$null}},
+            @{Name='PSPath';Expression={$null}}
+}
+
+# --- Sběr a sloučení ---
+$regData   = Get-InstalledFromRegistry
+$logData   = Get-InstalledFromEventLog -DaysBack 60
+$pkgData   = Get-InstalledFromPackage
+
+$merged = $regData + $logData + $pkgData
+
+# --- Dedup ---
+$clean = $merged |
+    Where-Object { $_.DisplayName } |
+    Sort-Object DisplayName, DisplayVersion |
+    Select-Object -Unique DisplayName, DisplayVersion, Publisher, InstallDate, UninstallString, Source
+
+$clean | Format-Table -AutoSize
