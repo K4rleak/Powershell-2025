@@ -1,0 +1,33 @@
+param(
+    [string]$url,
+    [int]$length
+)
+
+function Show-Usage {
+    Write-Host "Použití: .\script.ps1 -url <URL> -length <délka_slova>"
+    Write-Host "Příklad: .\script.ps1 -url https://example.com -length 5"
+}
+
+if (-not $url -or -not $length) {
+    Show-Usage
+    exit
+}
+
+try {
+    $response = Invoke-WebRequest -Uri $url -UseBasicParsing
+} catch {
+    Write-Host "Chyba při načítání stránky: $_"
+    exit
+}
+
+# Odstraní HTML tagy
+$text = $response.Content -replace '<[^>]+>', ' '
+
+# Najde všechna slova
+$words = ($text -split '\W+') | Where-Object { $_ -ne '' } | ForEach-Object { $_.ToLower() }
+
+# Filtruje slova podle délky a získá jedinečná
+$uniqueWords = $words | Where-Object { $_.Length -eq $length } | Sort-Object -Unique
+
+Write-Host "Jedinečná slova délky ${length}:"
+$uniqueWords | ForEach-Object { Write-Host $_ }
